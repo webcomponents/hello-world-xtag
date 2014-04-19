@@ -1,16 +1,5 @@
 {
-    "name": "hello-world-xtag",
-    "version": "0.1.0",
-    "description": "Web Component example using X-Tag",
-    "author": "WebComponents.org",
-    "license": "MIT",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/webcomponents/hello-world-xtag"
-    },
-    "bugs": {
-        "url": "https://github.com/webcomponents/hello-world-xtag/issues"
-    },
+    "private": true,
     "devDependencies": {
         "grunt": "~0.4.1",
         "grunt-bump": "~0.0.13",
