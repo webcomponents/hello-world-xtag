@@ -25,27 +25,27 @@
                     // Creates the shadow root
                     this.shadowRoot = this.createShadowRoot();
 
-                    this.uiSetName();
+                    this.uiSetWho();
                 },
                 attributeChanged: function() {
-                    this.uiSetName();
+                    this.uiSetWho();
                 }
             },
             accessors: {
-                name: {
+                who: {
                     attribute: {},
                     get: function(){
-                        return this.getAttribute('name') || "World"
+                        return this.getAttribute('who') || "World"
                     },
                     set: function(value){
-                        this.xtag.data.name = value;
+                        this.xtag.data.who = value;
                     }
                 }
             },
             methods: {
-                uiSetName: function() {
-                    // Sets name value into <strong>
-                    this.strong.textContent = this.name;
+                uiSetWho: function() {
+                    // Sets "who" value into <strong>
+                    this.strong.textContent = this.who;
 
                     // Removes shadow root content
                     this.shadowRoot.innerHTML = '';
