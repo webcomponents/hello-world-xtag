@@ -1,6 +1,8 @@
 # &lt;hello-world&gt;
 
-> Web Component example using [X-Tag](http://x-tags.org/).
+> A Web Component example using [X-Tag](http://x-tags.org/).
+>
+> Looking for a boilerplate? Check [x-tag-boilerplate](https://github.com/webcomponents/x-tag-boilerplate).
 
 ## Demo
 
