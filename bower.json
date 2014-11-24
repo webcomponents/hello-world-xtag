@@ -18,6 +18,6 @@
     ],
     "dependencies": {
         "platform": "Polymer/platform#~0.3.3",
-        "x-tag-core": "~0.9.7"
+        "x-tag-core": "^1.0.0"
     }
 }
