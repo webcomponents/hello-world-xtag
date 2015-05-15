@@ -1,0 +1,21 @@
+{
+    "name": "hello-world-xtag",
+    "version": "1.0.0",
+    "description": "Web Component example using X-Tag",
+    "authors": [
+        "WebComponents.org"
+    ],
+    "license": "MIT",
+    "main": "hello-world.html",
+    "keywords": [
+        "x-tag",
+        "web-components"
+    ],
+    "ignore": [
+        "**/.*",
+        "bower_components"
+    ],
+    "dependencies": {
+        "x-tag-core": "^1.0.14"
+    }
+}

@@ -1,0 +1,7 @@
+{
+    "private": true,
+    "name": "hello-world-xtag",
+    "dependencies": {
+        "hello-world-xtag": "webcomponents/hello-world-xtag#master"
+    }
+}

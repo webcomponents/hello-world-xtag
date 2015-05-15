@@ -6,7 +6,7 @@ describe("x-tag ", function () {
   it('should load x-tag.js and fire DOMComponentsLoaded', function (){
 
     var DOMComponentsLoaded = false;
-    var WebComponentsReady = false;
+    var WebComponentsReady = true;
     var HTMLImportsLoaded = false;
 
     document.addEventListener('DOMComponentsLoaded', function (){
@@ -494,11 +494,11 @@ describe("x-tag ", function () {
     });
 
     it("mixins should not override existing properties", function (){
-      var onCreateFired;
+      var onCreateFired = 0;
       xtag.mixins.test = {
         lifecycle: {
           created: function (){
-            onCreateFired = 1;
+            onCreateFired++;
           }
         }
       };
@@ -507,7 +507,7 @@ describe("x-tag ", function () {
         mixins: ['test'],
         lifecycle: {
           created: function (){
-            onCreateFired = 2;
+            onCreateFired++;
           }
         }
       });
@@ -590,8 +590,8 @@ describe("x-tag ", function () {
       }, "new tag mixin created should fire", 500);
 
       runs(function (){
-        expect(2).toEqual(mixinFired);
-        expect(1).toEqual(originalFired);
+        expect(1).toEqual(mixinFired);
+        expect(2).toEqual(originalFired);
       });
     });
 
@@ -627,8 +627,8 @@ describe("x-tag ", function () {
       }, "new tag mixin created should fire", 500);
 
       runs(function (){
-        expect(1).toEqual(mixinOne);
-        expect(2).toEqual(mixinTwo);
+        expect(2).toEqual(mixinOne);
+        expect(1).toEqual(mixinTwo);
       });
     });
 
@@ -639,7 +639,7 @@ describe("x-tag ", function () {
 
       xtag.mixins.test = {
         lifecycle: {
-          'created': function (){
+          created: function (){
             createdFired1 = ++count;
           }
         }
@@ -702,7 +702,7 @@ describe("x-tag ", function () {
       });
     });
 
-    it("it should fire the mixin created function AFTER, WHEN NO OPTION IS PASSED the element's", function (){
+    it("it should fire the mixin created function BEFORE, WHEN NO OPTION IS PASSED the element's", function (){
       var count = 0,
           createdFired1,
           createdFired2;
@@ -732,23 +732,19 @@ describe("x-tag ", function () {
       }, "new tag mixin created should fire", 500);
 
       runs(function (){
-        expect(1).toEqual(createdFired1);
-        expect(2).toEqual(createdFired2);
+        expect(2).toEqual(createdFired1);
+        expect(1).toEqual(createdFired2);
       });
     });
 
     it("should allow mixins to create getters", function (){
-      var count = 0,
-          getFoo = {
-            base: null,
-            mixin: null
-          };
+      var count = 0, base, mixin;
 
       xtag.mixins.test = {
         accessors: {
-          foo: {
+          bar: {
             get: function (){
-              if (count < 2) getFoo.mixin = ++count;
+              mixin = ++count;
               return "barr";
             }
           }
@@ -758,9 +754,9 @@ describe("x-tag ", function () {
       xtag.register('x-foo18', {
         mixins: ['test'],
         accessors: {
-          foo: {
+          bar: {
             'get:mixins': function (){
-              if (count < 2) getFoo.base = ++count;
+              base = ++count;
               return "barr";
             }
           }
@@ -768,9 +764,9 @@ describe("x-tag ", function () {
       });
 
       var foo = document.createElement('x-foo18');
-      var testing = foo.foo;
-      expect(getFoo.base).toEqual(1);
-      expect(getFoo.mixin).toEqual(2);
+      var testing = foo.bar;
+      expect(mixin).toEqual(1);
+      expect(base).toEqual(2);
     });
 
     it("should allow mixins to create setters", function (){
@@ -905,7 +901,7 @@ describe("x-tag ", function () {
         lifecycle: {
           created: function (){
             customElement = this;
-            this.innerHTML = '<div></div><div></div>';
+            this.innerHTML = '<div><div></div></div>';
           }
         },
         events: {
@@ -1074,7 +1070,7 @@ describe("x-tag ", function () {
       expect(foo.getAttribute('foo-bar')).toEqual('bar');
 
     });
-    
+
     it('setter fooBar should run the validate and pass along the modified value', function (){
       var filteredValue;
       xtag.register('x-foo-attr-validate', {
@@ -1211,6 +1207,8 @@ describe("x-tag ", function () {
 
     });
 
+
+
     it('extends should allow elements to use other elements base functionality', function(){
       xtag.register("x-foo29", {
         extends: 'div',
@@ -1226,6 +1224,21 @@ describe("x-tag ", function () {
       expect(foo.innerHTML).toEqual('<div>hello</div>');
 
     });
+
+    it('extends should instantiate elements in natural source', function(){
+      xtag.register("x-extendelement1",{
+        extends: 'div',
+        lifecycle: {
+          created: function() {
+            var nodes = xtag.createFragment('<div>hello</div>').cloneNode(true);
+            this.appendChild(nodes);
+          }
+        }
+      });
+      var foo = document.getElementById('extend_element');
+      expect(foo.innerHTML).toEqual('<div>hello</div>');
+    });
+
 
     it('is="" should bootstrap element', function(){
       var count = 0;

@@ -1,0 +1,30 @@
+{
+  "name": "hello-world-xtag",
+  "description": "Web Component example using X-Tag",
+  "authors": [
+    "WebComponents.org"
+  ],
+  "license": "MIT",
+  "main": "hello-world.html",
+  "keywords": [
+    "x-tag",
+    "web-components"
+  ],
+  "ignore": [
+    "**/.*",
+    "bower_components"
+  ],
+  "dependencies": {
+    "x-tag-core": "^1.0.14"
+  },
+  "homepage": "https://github.com/webcomponents/hello-world-xtag",
+  "_release": "8ba4e95867",
+  "_resolution": {
+    "type": "branch",
+    "branch": "master",
+    "commit": "8ba4e95867599eb8cc006ec8a5abdb194909c65d"
+  },
+  "_source": "git://github.com/webcomponents/hello-world-xtag.git",
+  "_target": "master",
+  "_originalSource": "webcomponents/hello-world-xtag"
+}

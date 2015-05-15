@@ -44,7 +44,7 @@
         js: pre == 'ms' ? pre : pre[0].toUpperCase() + pre.substr(1)
       };
     })(),
-    matchSelector = Element.prototype.matchesSelector || Element.prototype[prefix.lowercase + 'MatchesSelector'],
+    matchSelector = Element.prototype.matches || Element.prototype.matchesSelector || Element.prototype[prefix.lowercase + 'MatchesSelector'],
     mutation = win.MutationObserver || win[prefix.js + 'MutationObserver'];
 
 /*** Functions ***/
@@ -126,36 +126,45 @@
     else source[key] = clone(current, type);
     return source;
   }
-
-  function wrapMixin(tag, key, pseudo, value, original){
-    var fn = original[key];
-    if (!(key in original)) {
-      original[key + (pseudo.match(':mixins') ? '' : ':mixins')] = value;
-    }
-    else if (typeof original[key] == 'function') {
-      if (!fn.__mixins__) fn.__mixins__ = [];
-      fn.__mixins__.push(xtag.applyPseudos(pseudo, value, tag.pseudos));
+  
+  function mergeMixin(tag, original, mixin, name) {
+    var key, keys = {};
+    for (var z in original) keys[z.split(':')[0]] = z;
+    for (z in mixin) {
+      key = keys[z.split(':')[0]];
+      if (typeof original[key] == 'function') {
+        if (!key.match(':mixins')) {
+          original[key + ':mixins'] = original[key];
+          delete original[key];
+          key = key + ':mixins';
+        }
+        original[key].__mixin__ = xtag.applyPseudos(z + (z.match(':mixins') ? '' : ':mixins'), mixin[z], tag.pseudos, original[key].__mixin__);
+      }
+      else {
+        original[z] = mixin[z];
+        delete original[key];
+      }
     }
   }
-
+  
   var uniqueMixinCount = 0;
-  function mergeMixin(tag, mixin, original, mix) {
-    if (mix) {
-      var uniques = {};
-      for (var z in original) uniques[z.split(':')[0]] = z;
-      for (z in mixin) {
-        wrapMixin(tag, uniques[z.split(':')[0]] || z, z, mixin[z], original);
-      }
-    }
-    else {
-      for (var zz in mixin){
-        original[zz + ':__mixin__(' + (uniqueMixinCount++) + ')'] = xtag.applyPseudos(zz, mixin[zz], tag.pseudos);
-      }
+  function addMixin(tag, original, mixin){
+    for (var z in mixin){
+      original[z + ':__mixin__(' + (uniqueMixinCount++) + ')'] = xtag.applyPseudos(z, mixin[z], tag.pseudos);
     }
   }
-
+  
+  function resolveMixins(mixins, output){
+    var index = mixins.length;
+    while (index--){
+      output.unshift(mixins[index]);
+      if (xtag.mixins[mixins[index]].mixins) resolveMixins(xtag.mixins[mixins[index]].mixins, output);
+    }
+    return output;
+  }
+  
   function applyMixins(tag) {
-    tag.mixins.forEach(function (name) {
+    resolveMixins(tag.mixins, []).forEach(function(name){
       var mixin = xtag.mixins[name];
       for (var type in mixin) {
         var item = mixin[type],
@@ -163,13 +172,16 @@
         if (!original) tag[type] = item;
         else {
           switch (type){
-            case 'accessors': case 'prototype':
+            case 'mixins': break;
+            case 'events': addMixin(tag, original, item); break;
+            case 'accessors':
+            case 'prototype':
               for (var z in item) {
                 if (!original[z]) original[z] = item[z];
-                else mergeMixin(tag, item[z], original[z], true);
+                else mergeMixin(tag, original[z], item[z], name);
               }
-              break;
-            default: mergeMixin(tag, item, original, type != 'events');
+              break;             
+            default: mergeMixin(tag, original, item, name);
           }
         }
       }
@@ -180,16 +192,14 @@
 // Events
 
   function delegateAction(pseudo, event) {
-    var match, target = event.target;
-    if (!target.tagName) return null;
-    if (xtag.matchSelector(target, pseudo.value)) match = target;
-    else if (xtag.matchSelector(target, pseudo.value + ' *')) {
-      var parent = target.parentNode;
-      while (!match) {
-        if (xtag.matchSelector(parent, pseudo.value)) match = parent;
-        parent = parent.parentNode;
-      }
+    var match,
+        target = event.target,
+        root = event.currentTarget;
+    while (!match && target && target != root) {
+      if (target.tagName && matchSelector.call(target, pseudo.value)) match = target;
+      target = target.parentNode;
     }
+    if (!match && root.tagName && matchSelector.call(root, pseudo.value)) match = root;
     return match ? pseudo.listener = pseudo.listener.bind(match) : null;
   }
 
@@ -236,13 +246,7 @@
       while (index--) nodes[index][method](name, value);
     }
   }
-
-  function updateView(element, name, value){
-    if (element.__view__){
-      element.__view__.updateBindingValue(element, name, value);
-    }
-  }
-
+  
   function attachProperties(tag, prop, z, accessor, attr, name){
     var key = z.split(':'), type = key[0];
     if (type == 'get') {
@@ -252,15 +256,21 @@
     else if (type == 'set') {
       key[0] = prop;
       var setter = tag.prototype[prop].set = xtag.applyPseudos(key.join(':'), attr ? function(value){
-          value = attr.boolean ? !!value : attr.validate ? attr.validate.call(this, value) : value;
-          var method = attr.boolean ? (value ? 'setAttribute' : 'removeAttribute') : 'setAttribute';
+        var old, method = 'setAttribute';
+        if (attr.boolean){
+          value = !!value;
+          old = this.hasAttribute(name);
+          if (!value) method = 'removeAttribute';
+        }
+        else {
+          value = attr.validate ? attr.validate.call(this, value) : value;
+          old = this.getAttribute(name);
+        }
         modAttr(this, attr, name, value, method);
-        accessor[z].call(this, value);
+        accessor[z].call(this, value, old);
         syncAttr(this, attr, name, value, method);
-        updateView(this, prop, value);
       } : accessor[z] ? function(value){
         accessor[z].call(this, value);
-        updateView(this, prop, value);
       } : null, tag.pseudos, accessor[z]);
 
       if (attr) attr.setter = accessor[z];
@@ -294,7 +304,6 @@
         var method = attr.boolean ? (value ? 'setAttribute' : 'removeAttribute') : 'setAttribute';
         modAttr(this, attr, name, value, method);
         syncAttr(this, attr, name, value, method);
-        updateView(this, name, value);
       };
     }
   }
@@ -336,7 +345,7 @@
       var basePrototype = options.prototype;
       delete options.prototype;
       var tag = xtag.tags[_name].compiled = applyMixins(xtag.merge({}, xtag.defaultOptions, options));
-
+      
       for (var z in tag.events) tag.events[z] = xtag.parseEvent(z, tag.events[z]);
       for (z in tag.lifecycle) tag.lifecycle[z.split(':')[0]] = xtag.applyPseudos(z, tag.lifecycle[z], tag.pseudos, tag.lifecycle[z]);
       for (z in tag.methods) tag.prototype[z.split(':')[0]] = { value: xtag.applyPseudos(z, tag.methods[z], tag.pseudos, tag.methods[z]), enumerable: true };
@@ -388,16 +397,18 @@
 
       tag.prototype.setAttribute = {
         writable: true,
-        enumberable: true,
+        enumerable: true,
         value: function (name, value){
+          var old;
           var _name = name.toLowerCase();
           var attr = tag.attributes[_name];
           if (attr) {
+            old = this.getAttribute(_name);
             value = attr.boolean ? '' : attr.validate ? attr.validate.call(this, value) : value;
           }
           modAttr(this, attr, _name, value, 'setAttribute');
           if (attr) {
-            if (attr.setter) attr.setter.call(this, attr.boolean ? true : value);
+            if (attr.setter) attr.setter.call(this, attr.boolean ? true : value, old);
             syncAttr(this, attr, _name, value, 'setAttribute');
           }
         }
@@ -405,13 +416,14 @@
 
       tag.prototype.removeAttribute = {
         writable: true,
-        enumberable: true,
+        enumerable: true,
         value: function (name){
           var _name = name.toLowerCase();
           var attr = tag.attributes[_name];
+          var old = this.hasAttribute(_name);
           modAttr(this, attr, _name, '', 'removeAttribute');
           if (attr) {
-            if (attr.setter) attr.setter.call(this, attr.boolean ? false : undefined);
+            if (attr.setter) attr.setter.call(this, attr.boolean ? false : undefined, old);
             syncAttr(this, attr, _name, '', 'removeAttribute');
           }
         }
@@ -419,15 +431,15 @@
 
       var elementProto = basePrototype ?
             basePrototype :
-            options['extends'] ?
-            Object.create(doc.createElement(options['extends']).constructor).prototype :
+            tag['extends'] ?
+            Object.create(doc.createElement(tag['extends']).constructor).prototype :
             win.HTMLElement.prototype;
 
       var definition = {
         'prototype': Object.create(elementProto, tag.prototype)
       };
-      if (options['extends']) {
-        definition['extends'] = options['extends'];
+      if (tag['extends']) {
+        definition['extends'] = tag['extends'];
       }
       var reg = doc.registerElement(_name, definition);
       return reg;
@@ -515,37 +527,29 @@
     },
     pseudos: {
       __mixin__: {},
-      /*
-
-
-      */
       mixins: {
         onCompiled: function(fn, pseudo){
-          var mixins = pseudo.source.__mixins__;
-          if (mixins) switch (pseudo.value) {
-            case 'before': return function(){
-              var self = this,
-                  args = arguments;
-              mixins.forEach(function(m){
-                m.apply(self, args);
-              });
-              return fn.apply(self, args);
-            };
-            case null: case '': case 'after': return function(){
-              var self = this,
-                  args = arguments;
-                  returns = fn.apply(self, args);
-              mixins.forEach(function(m){
-                m.apply(self, args);
-              });
+          var mixin = pseudo.source && pseudo.source.__mixin__ || pseudo.source;
+          if (mixin) switch (pseudo.value) {
+            case null: case '': case 'before': return function(){
+              mixin.apply(this, arguments);
+              return fn.apply(this, arguments);
+            }; 
+            case 'after': return function(){
+              var returns = fn.apply(this, arguments);
+              mixin.apply(this, arguments);
               return returns;
             };
+            case 'none': return fn;
           }
+          else return fn;
         }
       },
       keypass: keypseudo,
       keyfail: keypseudo,
-      delegate: { action: delegateAction },
+      delegate: {
+        action: delegateAction
+      },
       within: {
         action: delegateAction,
         onAdd: function(pseudo){
@@ -747,6 +751,8 @@
           pseudo['arguments'] = (value || '').split(',');
           pseudo.action = pseudo.action || trueop;
           pseudo.source = source;
+          pseudo.onAdd = pseudo.onAdd || noop;
+          pseudo.onRemove = pseudo.onRemove || noop;
           var original = pseudo.listener = listener;
           listener = function(){
             var output = pseudo.action.apply(this, [pseudo].concat(toArray(arguments)));
@@ -755,10 +761,8 @@
             pseudo.listener = original;
             return output;
           };
-          if (target && pseudo.onAdd) {
-            if (target.nodeName) pseudo.onAdd.call(target, pseudo);
-            else target.push(pseudo);
-          }
+          if (!target) pseudo.onAdd.call(fn, pseudo);
+          else target.push(pseudo);
         });
       }
       for (var z in pseudos) {
@@ -769,7 +773,7 @@
 
     removePseudos: function(target, pseudos){
       pseudos.forEach(function(obj){
-        if (obj.onRemove) obj.onRemove.call(target, obj);
+        obj.onRemove.call(target, obj);
       });
     },
 
